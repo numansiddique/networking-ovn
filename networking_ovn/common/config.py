@@ -47,6 +47,9 @@ ovn_opts = [
                 help=_('Whether to use OVN native L3 support. Do not change '
                        'the value for existing deployments that contain '
                        'routers.')),
+    cfg.BoolOpt('ovn_enable_acls',
+                default=True,
+                help=_('Enable ACLs or not.')),
     cfg.StrOpt("ovn_l3_scheduler",
                default='leastloaded',
                choices=('leastloaded', 'chance'),
@@ -124,6 +127,10 @@ def get_ovn_vhost_sock_dir():
 
 def is_ovn_dhcp():
     return cfg.CONF.ovn.ovn_native_dhcp
+
+
+def is_acls_enabled():
+    return cfg.CONF.ovn.ovn_enable_acls
 
 
 def get_ovn_dhcp_default_lease_time():

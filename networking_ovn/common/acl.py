@@ -24,7 +24,8 @@ from networking_ovn.common import utils
 
 
 def is_sg_enabled():
-    return cfg.CONF.SECURITYGROUP.enable_security_group
+    return cfg.CONF.SECURITYGROUP.enable_security_group and (
+        config.is_acls_enabled())
 
 
 def acl_direction(r, port):
