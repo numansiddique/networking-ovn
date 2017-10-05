@@ -1,0 +1,8 @@
+# Playbook to create pre migration resources
+
+- name: Create the pre migration resource stack
+  roles:
+    - resources/create
+  when: create_migration_resources is defined and create_migration_resources|bool
+  tags:
+    - pre-migration

@@ -1,0 +1,5 @@
+---
+
+public_network_name: "{{ public_network_name }}"
+create_pre_migration_resource_script: create-resources.sh.j2
+ovn_migration_working_dir: "{{ working_dir }}"

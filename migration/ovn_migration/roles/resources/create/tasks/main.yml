@@ -1,0 +1,14 @@
+---
+
+- name: Generate pre migration script
+  template:
+    src: "{{ create_pre_migration_resource_script }}"
+    dest: "{{ ovn_migration_working_dir }}/create-pre-migration-resources.sh"
+    mode: 0744
+
+- name: Creating pre migration resources
+  shell: >
+    set -o pipefail &&
+    {{ ovn_migration_working_dir }}/create-pre-migration-resources.sh 2>&1 >
+    create-pre-migration-resources.sh.log 
+  

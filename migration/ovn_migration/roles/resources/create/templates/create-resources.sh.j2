@@ -1,0 +1,125 @@
+#!/bin/bash
+
+set -ux
+
+## Create the resources during migration. Either pre or post.
+
+cat > ovn-migration-resources.yml << EOF
+heat_template_version: ocata
+
+description: >
+    This template creates resources during migration to OVN.
+
+parameters:
+  OvnMigrationSubnetCIDR:
+    type: string
+    description: Network address for migration smoke network used by migration
+                 tool.
+    default: '172.168.199.0/24'
+  PublicNetworkName:
+    type: string
+    default: 'nova'
+    description: >
+      ID or name of public network for which floating IP addresses will be allocated
+
+
+resources:
+  OvnMigrationFlavor:
+    type: OS::Nova::Flavor
+    properties:
+      name: ovn-migration
+      disk: 20
+      ram: 1024
+      vcpus: 1
+
+  OvnMigrationSSHKey:
+    type: OS::Nova::KeyPair
+    properties:
+      save_private_key: true
+      name: 'ovn-migration'
+
+  OvnMigrationNetwork:
+    type: OS::Neutron::Net
+    name: 'ovn-migration-net'
+
+  OvnMigrationSubnet:
+    type: OS::Neutron::Subnet
+    properties:
+      cidr: {get_param: OvnMigrationSubnetCIDR}
+      name: 'ovn-migration-subnet'
+      network_id: {get_resource: OvnMigrationNetwork}
+
+  OvnMigrationSecurityGroup:
+    type: OS::Neutron::SecurityGroup
+    properties:
+      name: 'ovn-migration-sg'
+      rules:
+        - protocol: tcp
+          port_range_min: 22
+          port_range_max: 22
+        - protocol: icmp
+
+  OVNMigrationRouter:
+    type: OS::Neutron::Router
+    properties:
+      external_gateway_info:
+        network: { get_param: PublicNetworkName }
+
+  OVNMigrationRouterIface:
+    type: OS::Neutron::RouterInterface
+    properties:
+      router_id: { get_resource: OVNMigrationRouter }
+      subnet_id: { get_resource: OvnMigrationSubnet }
+
+  OvnMigrationServer:
+    type: OS::Nova::Server
+    properties:
+      name: 'ovn-migration-server'
+      flavor: {get_resource: OvnMigrationFlavor}
+      key_name: {get_resource: OvnMigrationSSHKey}
+      networks:
+        - port: { get_resource: OvnMigrationServerPort }
+
+  OvnMigrationServerPort:
+    type: OS::Neutron::Port
+    properties:
+      network_id: { get_resource: OvnMigrationNetwork }
+      fixed_ips:
+        - subnet_id: { get_resource: OvnMigrationSubnet }
+      security_groups: [{ get_resource: OvnMigrationSecurityGroup }]
+
+  OvnMigrationServerFip:
+    type: OS::Neutron::FloatingIP
+    depends_on: OVNMigrationRouterIface
+    properties:
+      floating_network: { get_param: PublicNetworkName }
+      port_id: { get_resource: OvnMigrationServerPort }
+
+outputs:
+  migration_server_private_ip:
+    description: IP address of OvnMigrationServer
+    value: { get_attr: [ OvnMigrationServer, first_address ] }
+  migration_server_public_ip:
+    description: Floating IP address of OvnMigrationServer in public network
+    value: { get_attr: [ OvnMigrationServerFip, floating_ip_address ] }
+  public_key:
+    description: public key
+    value: {get_attr: [OvnMigrationSSHKey, public_key]}
+  private_key:
+    description: private key
+    value: {get_attr: [OvnMigrationSSHKey, private_key]}
+EOF
+
+openstack stack create --template ovn-migration-resources.yml \
+  ovn-migration-resources --parameter PublicNetworkName={{ public_network_name }} --wait
+
+
+# Once the stack is created, we can obtain the private and public key and other
+# info from the stack outputs.
+openstack stack show -f json -c outputs ovn-migration-resources  > outputs.json
+cat outputs.json | \
+    jq -r  '.["outputs"] | .[] | select(.output_key == "private_key")| .["output_value"]' \
+    > ovn_migration_ssh_key
+cat outputs.json | \
+    jq -r  '.["outputs"] | .[] | select(.output_key == "public_key")| .["output_value"]' \
+    > ovn_migration_ssh_key.pub

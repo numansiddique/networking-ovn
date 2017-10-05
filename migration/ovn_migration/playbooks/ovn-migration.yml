@@ -1,0 +1,17 @@
+# This is the playbook used by ovn-migration.sh.
+# This is the start of the migration
+- include: pre-migration.yml
+  tags:
+    - pre-migration
+
+- include: setup-ovn.yml
+  tags:
+    - setup
+
+- include: migrate.yml
+  tags:
+    - migrate
+
+- include: post-migration.yml
+  tags:
+    - post-migration
