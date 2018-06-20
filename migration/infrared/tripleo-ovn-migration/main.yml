@@ -1,0 +1,71 @@
+
+- name: Install migration tool
+  hosts: undercloud
+  tasks:
+      - block:
+            - name: Check if install is defined or not
+              set_fact:
+                  from_package: "{{ install.install_from_package }}"
+              when:
+                - install is defined
+
+            - name: Check if install is defined or not
+              set_fact:
+                  from_package: "{{ install_from_package }}"
+              when:
+                - install is not defined
+      - debug:
+            msg: "{{ from_package }}"
+
+      - name: Install migration package
+        include_role:
+            name: install-ovn-migration
+        vars:
+            install_migration_package: "{{ from_package }}"
+
+- name: Prepare for migration
+  hosts: undercloud
+  tasks:
+      - name: Set the docker registry information
+        block:
+            - name: Get the docker registry info (infrared deployment)
+              block:
+                  - name: Set is infrard deployment
+                    set_fact:
+                        is_infrared: True
+
+                  - name: Save the docker reg
+                    set_fact:
+                        container_image_prepare:
+                            namespace: "{{ install.get('registry', {}).namespace|default(False)|ternary(install.get('registry', {}).namespace, install.get('registry', {}).mirror + '/' + 'rhosp' +  install.version) }}"
+                            prefix: "{{ install.registry.prefix|default('openstack') }}"
+                            tag: "{{ install.registry.tag|default('') }}"
+                            local_namespace: "{{ install.registry.local|default('') }}"
+              when:
+                  - install is defined
+
+            - name: Get the docker registry info (tripleo deployment)
+              block:
+                  - name: Set is infrard deployment
+                    set_fact:
+                        is_infrared: False
+
+                  - name: Save the docker reg dude
+                    set_fact:
+                        container_image_prepare:
+                            namespace: "{{ registry_namespace }}"
+                            local_namespace: "{{ registry_localnamespace }}"
+                            prefix: "{{ registry_prefix }}"
+                            tag: "{{ registry_tag }}"
+              when:
+                  - install is not defined
+
+      - name: Prepare for migration
+        include_role:
+           name: prepare-migration
+        vars:
+           infrared_deployment: "{{ is_infrared }}"
+           registry_namespace: "{{ container_image_prepare['namespace'] }}"
+           image_prefix: "{{ container_image_prepare['prefix'] }}"
+           image_tag: "{{ container_image_prepare['tag'] }}"
+           local_namespace: "{{ container_image_prepare['local_namespace'] }}"

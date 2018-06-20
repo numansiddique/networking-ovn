@@ -1,0 +1,4 @@
+---
+
+install_migration_package: True
+ovn_migration_src_dir: /home/stack/ovn_migration/playbooks

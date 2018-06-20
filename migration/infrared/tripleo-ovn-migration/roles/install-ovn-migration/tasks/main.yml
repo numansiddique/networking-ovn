@@ -1,0 +1,38 @@
+- name: Install python networking-ovn migration tool package
+  block:
+      - name: Install python2 openvswitch
+        yum:
+            name: python2-openvswitch
+            state: present
+
+      - name: Install python-networking-ovn
+        yum:
+            name: python-networking-ovn
+            state: present
+
+      - name: Install python networking ovn migration tool
+        yum:
+            name: https://trunk.rdoproject.org/centos7-master/current/python-networking-ovn-migration-tool-5.0.0-0.20180619135426.41b33ff.el7.noarch.rpm
+            state: present
+  when:
+      - install_migration_package|bool
+
+- name: Install python networking-ovn migration tool from sources
+  block:
+      - name: Delete ovn migration source directory if present
+        file:
+            state: absent
+            path: "{{ ovn_migration_src_dir }}"
+
+      - name : Create ovn migration source directory if not present
+        file:
+            state: directory
+            path: "{{ ovn_migration_src_dir }}"
+
+      - name: Clone python-networking-ovn directory
+        git:
+            repo: 'https://github.com/openstack/networking-ovn.git'
+            dest: "{{ ovn_migration_src_dir }}"
+  when:
+      - not install_migration_package
+  
